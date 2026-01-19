@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strumento Analisi Ore Lavorate</title>
+<link rel="icon" href="data:image/svg+xml,
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+<text y='0.9em' font-size='90'>📈</text>
+</svg>">
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ================= BASE ================= */
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
+  color:#0b3c5d;
+  background-image: linear-gradient(to top, #fff1eb 0%, #ace0f9 100%);
+  min-height:100vh;
+}
+.wrapper{width:70%;margin:0 auto;padding:26px 0 44px}
+
+/* ================= PANELS ================= */
+.panel{
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:16px;
+  box-shadow:0 10px 25px rgba(0,0,0,.08);
+  margin-bottom:16px;
+}
+.panelHeader{
+  padding:18px 20px 12px;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+.panelHeader h1{margin:0;font-size:20px;font-weight:750}
+.panelHeader p{margin:6px 0 0;font-size:14px;color:#355f7a}
+
+/* ================= TOOLBAR ================= */
+.toolbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:14px 20px;
+  flex-wrap:wrap;
+}
+.rightControls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ================= BUTTONS ================= */
+.softBtn{
+  border:1px solid rgba(0,0,0,.15);
+  background:#fff;
+  padding:10px 14px;
+  border-radius:12px;
+  font-size:14px;
+  cursor:pointer;
+  color:#0b3c5d;
+}
+.softBtn.active{
+  background:#cfeeff;
+  border-color:#7ec8ee;
+  font-weight:600;
+}
+/* === IMPORT BUTTON (BLU – OK) === */
+button.learn-more{
+  position:relative;
+  cursor:pointer;
+  font-weight:900;
+  color:#0b3c5d;
+  text-transform:uppercase;
+  padding:1.1em 1.8em;
+  background:#B0E1F8;
+  border:2px solid #7bbcd6;
+  border-radius:.75em;
+  transform-style:preserve-3d;
+}
+button.learn-more::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:#9ad7f2;
+  border-radius:inherit;
+  box-shadow:0 0 0 2px #7bbcd6, 0 .6em 0 0 rgba(255,255,255,.6);
+  transform:translate3d(0,.7em,-1em);
+}
+button.learn-more:hover{transform:translateY(.25em)}
+button.learn-more:hover::before{transform:translate3d(0,.5em,-1em)}
+button.learn-more:active{transform:translateY(.7em)}
+button.learn-more:active::before{transform:translate3d(0,0,-1em)}
+
+/* ================= TABS ================= */
+.tabs{display:flex;gap:8px}
+.tabBtn{
+  border:1px solid rgba(0,0,0,.15);
+  background:#fff;
+  padding:10px 14px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.tabBtn.active{background:#d8f0fb}
+
+/* ================= DROPDOWN CHECK ================= */
+.dropdown{position:relative}
+.dropdownBtn{
+  border:1px solid rgba(0,0,0,.15);
+  background:#fff;
+  padding:10px 14px;
+  border-radius:12px;
+  cursor:pointer;
+  min-width:200px;
+}
+.dropdownMenu{
+  position:absolute;
+  top:110%;
+  left:0;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.15);
+  border-radius:12px;
+  box-shadow:0 10px 25px rgba(0,0,0,.15);
+  padding:10px;
+  display:none;
+  z-index:10;
+  max-height:240px;
+  overflow:auto;
+}
+.dropdownMenu label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 4px;
+  cursor:pointer;
+  font-size:14px;
+}
+.dropdownMenu label:hover{
+  background:#eef8fd;
+  border-radius:8px;
+}
+
+/* ================= KPI ================= */
+.kpis{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  padding:14px 20px 18px;
+}
+.kpi{
+  border:1px solid rgba(0,0,0,.10);
+  border-radius:14px;
+  background:#fff;
+  padding:14px;
+}
+.kpi span{display:block;margin-bottom:10px;font-size:13px;color:#355f7a}
+.kpi strong{font-size:22px}
+
+/* ================= CHART ================= */
+.chartWrap{height:260px;padding:12px}
+
+/* ================= TABLE ================= */
+.tableInner{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:14px;
+  background:#fff;
+  overflow:auto;
+}
+table{width:100%;border-collapse:collapse;min-width:900px}
+th,td{
+  padding:10px 12px;
+  border-bottom:1px solid rgba(0,0,0,.08);
+  border-right:1px solid rgba(0,0,0,.08);
+}
+td.num{text-align:right}
+td.clickable{cursor:pointer;background:#eef8fd}
+tfoot td{
+  font-weight:700;
+  background:#f5fbfe;
+}
+#pivotTable thead th {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#pivotTable tbody td {
+  font-size: 16px;
+}
+/* === COLONNA TOTALE SEMPRE VISIBILE E SEPARATA === */
+#pivotTable th:last-child,
+#pivotTable td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+
+  /* background coprente */
+  background: #f5fbfe;
+
+  /* BORDO SEMPRE VISIBILE */
+  border-left: 3px solid #7ec8ee !important;
+
+  /* separazione visiva costante */
+  box-shadow: -2px 0 0 #7ec8ee;
+}
+
+/* === COLONNA UTENTE SEMPRE VISIBILE === */
+#pivotTable th:first-child,
+#pivotTable td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;              /* ⬅ più alto delle celle normali */
+  background: #fff;        /* ⬅ FONDAMENTALE */
+}
+/* Header Utente sopra alle celle */
+#pivotTable thead th:first-child {
+  z-index: 3;
+}
+
+/* Footer (se presente) */
+#pivotTable tfoot td:first-child {
+  z-index: 4;
+}
+/* Header sopra */
+#pivotTable thead th:last-child {
+  z-index: 3;
+}
+
+/* Footer sopra tutto */
+#pivotTable tfoot td:last-child {
+  z-index: 4;
+}
+
+/* Separatore visivo elegante */
+#pivotTable th:last-child,
+#pivotTable td:last-child {
+  border-left: 4px solid rgba(126,200,238,0.6);
+}
+/* ================= DETAILS ================= */
+.detailsBody{display:none;padding:12px}
+.detailsBody.open{display:block}
+
+@media(max-width:1100px){.wrapper{width:92%}}
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+<!-- DATAEXPERT HEADER -->
+<div class="panel" style="overflow:hidden;background:transparent;border:none;">
+  <div class="panelHeader"
+       style="
+         background:linear-gradient(180deg, #3A404C, #2D343F);
+         display:flex;
+         align-items:center;
+         justify-content:center;
+         padding:26px 20px;
+       ">
+    <img src="logo_dataexpert.png"
+         alt="Dataexpert"
+         style="max-height:56px;width:auto;">
+  </div>
+</div>
+<!-- PAGE TITLE -->
+<div class="panel">
+  <div class="panelHeader" style="display:flex;align-items:center;gap:14px;">
+    
+    <!-- ICON -->
+    <div style="
+      width:44px;
+      height:44px;
+      border-radius:12px;
+      background:linear-gradient(135deg,#7ec8ee,#b0e1f8);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:22px;
+    ">
+      📈
+    </div>
+
+    <!-- TITLE -->
+    <div>
+      <h1 style="margin:0;font-size:22px;">Rapportini Zoho - Tool di Analisi</h1>
+    </div>
+
+  </div>
+</div>
+<!-- HEADER -->
+<div class="panel">
+  <div class="panelHeader">
+    <h2>Analisi ore lavorate</h2>
+    <h1>Vista per Progetto • Task • Utente</h1>
+	<p>E' possibile importare più rapportini provenienti da utenti diversi</p>
+  </div>
+
+  <div class="toolbar">
+    <button id="btnImport" class="learn-more">Importa Excel</button>
+    <input id="fileInput" type="file" accept=".xlsx,.xml" hidden multiple>
+
+    <div class="rightControls">
+      <div class="tabs">
+        <div class="tabBtn active" data-view="project">Progetti</div>
+        <div class="tabBtn" data-view="task">Tasks</div>
+				<select id="chartModeSelect" class="softBtn">
+		  <option value="total">Riepilogo Totale</option>
+		  <option value="byUser">Progetti per Utente</option>
+		</select>
+
+		<select id="chartUnitSelect" class="softBtn">
+		  <option value="hours">Ore</option>
+		  <option value="days">Giorni</option>
+		</select>
+
+      </div>
+
+      <!-- PROJECT FILTER -->
+      <div class="dropdown" id="projectDropdown">
+        <div class="dropdownBtn">Filtra Progetti</div>
+        <div class="dropdownMenu" id="projectMenu"></div>
+      </div>
+
+      <!-- TASK FILTER -->
+      <div class="dropdown" id="taskDropdown" style="display:none">
+        <div class="dropdownBtn">Filtra Tasks</div>
+        <div class="dropdownMenu" id="taskMenu"></div>
+      </div>
+
+      <!-- USER FILTER -->
+      <div class="dropdown" id="userDropdown">
+        <div class="dropdownBtn">Filtra Utenti</div>
+        <div class="dropdownMenu" id="userMenu"></div>
+      </div>
+
+      <button class="softBtn" onclick="location.reload()">Reset</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><span>Totale ore</span><strong id="kpiHours">—</strong></div>
+    <div class="kpi"><span>Utenti</span><strong id="kpiUsers">—</strong></div>
+    <div class="kpi"><span>Progetti</span><strong id="kpiProjects">—</strong></div>
+    <div class="kpi"><span>Tasks</span><strong id="kpiTasks">—</strong></div>
+  </div>
+</div>
+
+<!-- CHART -->
+<div class="panel">
+  <div class="panelHeader"
+     style="display:flex;justify-content:space-between;align-items:center;">
+  <h1 style="font-size:16px">Grafico riepilogativo</h1>
+
+  <div style="display:flex;gap:8px;">
+    <button class="softBtn active"  id="btnChartTotal">
+      Riepilogo Totale
+    </button>
+    <button class="softBtn"  id="btnChartByUser">
+      Progetti per Utente
+    </button>
+  </div>
+</div>
+
+  <div class="chartWrap"><canvas id="barChart"></canvas></div>
+</div>
+
+<!-- PIVOT -->
+<div class="panel">
+  <div class="panelHeader"><h1 style="font-size:16px">Tabella Pivot</h1></div>
+  <div class="tableInner"><table id="pivotTable"></table></div>
+</div>
+
+<!-- DETAILS -->
+<div class="panel">
+  <div class="panelHeader"><h1 style="font-size:16px">Dettaglio</h1></div>
+  <div id="detailsBody" class="detailsBody">
+    <div class="tableInner">
+      <table>
+        <thead>
+          <tr>
+            <th>Utente</th>
+            <th>Progetto</th>
+            <th>Compito</th>
+            <th class="num">Ore</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+  <!-- FIRMA -->
+    <div style="
+      width:100%;
+      height:44px;
+      border-radius:12px;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:22px;
+    "> <img src="sheriff.png"
+         alt="Simone"
+         style="max-height:56px;width:auto;">
+		 <p style="font-size:15px; font-style: italic; font-family:sans-serif;">Designed by Simone Viscomi  </p>
+     
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+/* ================= STATE ================= */
+let rawData=[], currentView="project", chart=null;
+let selProjects=[], selTasks=[], selUsers=[];
+let chartMode = "total"; // total | byUser
+let chartUnit = "hours"; // hours | days
+
+const CHART_MIN_HEIGHT = 260;
+const BAR_HEIGHT = 34;
+const CHART_PADDING = 40;
+const BAR_HEIGHT_DENSE = 44; // più leggibile con molti elementi
+const BAR_HEIGHT_PER_USER = 28; // spazio verticale per ogni barra utente
+
+
+/* ================= DOM ================= */
+const el = id => document.getElementById(id);
+
+const btnImport = el("btnImport");
+const fileInput = el("fileInput");
+const chartModeSelect = el("chartModeSelect");
+const chartUnitSelect = el("chartUnitSelect");
+const pivotTable = el("pivotTable");
+const detailsBody = el("detailsBody");
+const detailBody = el("detailBody");
+const barChart = el("barChart");
+
+const projectDropdown = el("projectDropdown");
+const taskDropdown = el("taskDropdown");
+
+const btnChartTotal = document.getElementById("btnChartTotal");
+const btnChartByUser = document.getElementById("btnChartByUser");
+
+btnChartTotal.onclick = () => {
+  chartMode = "total";
+  btnChartTotal.classList.add("active");
+  btnChartByUser.classList.remove("active");
+  renderChart(filtered());
+};
+
+btnChartByUser.onclick = () => {
+  chartMode = "byUser";
+  btnChartByUser.classList.add("active");
+  btnChartTotal.classList.remove("active");
+  renderChart(filtered());
+};
+
+
+/* KPI */
+const kpiHours = el("kpiHours");
+const kpiUsers = el("kpiUsers");
+const kpiProjects = el("kpiProjects");
+const kpiTasks = el("kpiTasks");
+
+/* ================= EVENTS ================= */
+btnImport.onclick = () => fileInput.click();
+
+chartModeSelect.onchange = e => {
+  chartMode = e.target.value;
+  renderChart(filtered());
+};
+
+chartUnitSelect.onchange = e => {
+  chartUnit = e.target.value;
+  renderAll();
+};
+
+/* ================= DROPDOWN ================= */
+document.addEventListener("click", e => {
+  document.querySelectorAll(".dropdownMenu").forEach(m => {
+    if (!m.parentElement.contains(e.target)) m.style.display = "none";
+  });
+});
+
+document.querySelectorAll(".dropdownBtn").forEach(b => {
+  b.onclick = e => {
+    const menu = b.nextElementSibling;
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+    e.stopPropagation();
+  };
+});
+
+/* ================= UNIT ================= */
+function toUnit(v){
+  return chartUnit === "days" ? v / 8 : v;
+}
+function formatUnit(v){
+  return toUnit(v).toFixed(2);
+}
+
+/* ================= IMPORT ================= */
+function findHeaderIndex(headers, possibleNames){
+  return headers.findIndex(h =>
+    possibleNames.includes(h?.toString().trim())
+  );
+}
+
+fileInput.onchange = e => {
+  rawData = [];
+  [...e.target.files].forEach(f => {
+    const r = new FileReader();
+    const xml = f.name.endsWith(".xml");
+    r.onload = ev => {
+      const wb = XLSX.read(ev.target.result, { type: xml ? "string" : "array" });
+      const rows = XLSX.utils.sheet_to_json(
+        wb.Sheets[wb.SheetNames[0]],
+        { header: 1 }
+      );
+      const h = rows[0];
+      const idx = {
+        u: h.indexOf("Utente"),
+        p: h.indexOf("Project Name"),
+        t: findHeaderIndex(h, [
+          "Compito/Generale/Issue",
+          "Compito/Generale/Problema"
+        ]),
+        o: h.indexOf("Hours(For Calculation)")
+      };
+
+      rows.slice(1).forEach(r => {
+        if (r.some(c => String(c).includes("Totale ore di log"))) return;
+        const ore = parseFloat(r[idx.o]);
+        if (!isNaN(ore))
+          rawData.push({
+            utente: r[idx.u],
+            progetto: r[idx.p],
+            compito: r[idx.t],
+            ore
+          });
+      });
+
+      initUI();
+      renderAll();
+    };
+    xml ? r.readAsText(f) : r.readAsArrayBuffer(f);
+  });
+};
+
+/* ================= FILTER UI ================= */
+function initUI(){
+  buildMenu("projectMenu",[...new Set(rawData.map(r=>r.progetto))],selProjects);
+  buildMenu("taskMenu",[...new Set(rawData.map(r=>r.compito))],selTasks);
+  buildMenu("userMenu",[...new Set(rawData.map(r=>r.utente))],selUsers);
+}
+
+function buildMenu(id, values, store){
+  const menu = el(id);
+  menu.innerHTML = "";
+  values.forEach(v => {
+    const l = document.createElement("label");
+    l.innerHTML = `<input type="checkbox"> ${v}`;
+    l.querySelector("input").onchange = e => {
+      if (e.target.checked) store.push(v);
+      else store.splice(store.indexOf(v), 1);
+      renderAll();
+    };
+    menu.appendChild(l);
+  });
+}
+
+/* ================= TABS ================= */
+document.querySelectorAll(".tabBtn").forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll(".tabBtn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    currentView = b.dataset.view;
+    projectDropdown.style.display = currentView === "project" ? "block" : "none";
+    taskDropdown.style.display = currentView === "task" ? "block" : "none";
+    renderAll();
+  };
+});
+
+/* ================= FILTER ================= */
+function filtered(){
+  return rawData.filter(r => {
+    if (selUsers.length && !selUsers.includes(r.utente)) return false;
+    if (currentView === "project" && selProjects.length && !selProjects.includes(r.progetto)) return false;
+    if (currentView === "task" && selTasks.length && !selTasks.includes(r.compito)) return false;
+    return true;
+  });
+}
+
+/* ================= RENDER ================= */
+function renderAll(){
+  const d = filtered();
+  kpiHours.textContent = formatUnit(d.reduce((s,r)=>s+r.ore,0));
+  kpiUsers.textContent = new Set(d.map(r=>r.utente)).size;
+  kpiProjects.textContent = new Set(d.map(r=>r.progetto)).size;
+  kpiTasks.textContent = new Set(d.map(r=>r.compito)).size;
+  renderChart(d);
+  renderPivot(d);
+}
+
+/* ================= CHART ================= */
+function buildProjectByUserDatasets(data){
+  // utenti
+  const users = [...new Set(data.map(r => r.utente))];
+
+  // totale per progetto (serve per ordinamento)
+  const projectTotals = {};
+  data.forEach(r => {
+    projectTotals[r.progetto] =
+      (projectTotals[r.progetto] || 0) + toUnit(r.ore);
+  });
+
+  // progetti ordinati per totale decrescente
+  const projects = Object.entries(projectTotals)
+    .sort((a,b)=>b[1]-a[1])
+    .map(e=>e[0]);
+
+  const palette = [
+  "#7EC8EE", // blu acciaio
+  "#597DD9", // azzurro
+  "#59CED9", // teal soft
+  "#9CD9CF", // blu polvere
+  "#8DA0CB", // lavanda freddo
+  "#B07AA1", // lilla smorzato
+  "#A0CBE8", // azzurro chiaro
+  "#4E6865", // verde acqua
+  "#C5EDE9", // blu ghiaccio
+  "#9AD0C2"  // verde pastello
+  ];
+
+  // datasets ALLINEATI all’array `projects`
+  const datasets = users.map((u,i)=>({
+    label: u,
+    backgroundColor: palette[i % palette.length],
+    borderRadius: 6,
+    data: projects.map(p => {
+      return toUnit(
+        data
+          .filter(r => r.utente === u && r.progetto === p)
+          .reduce((s,r)=>s+r.ore,0)
+      );
+    })
+  }));
+
+  return { projects, datasets };
+}
+
+
+function renderChart(d){
+  if(chart) chart.destroy();
+
+  const ctx = barChart.getContext("2d");
+  const unitLabel = chartUnit === "days" ? "gg" : "ore";
+  const chartWrap = document.querySelector(".chartWrap");
+
+  /* ===== MODALITÀ: PROGETTI PER UTENTE ===== */
+  if(chartMode === "byUser"){
+    const { projects, datasets } = buildProjectByUserDatasets(d);
+
+    // 👉 ALTEZZA DINAMICA
+
+const userCount = datasets.length;
+
+// spazio verticale per ogni progetto = utenti × spazio per barra
+const perProjectHeight = userCount * BAR_HEIGHT_PER_USER;
+
+const chartHeight = Math.max(
+  CHART_MIN_HEIGHT,
+  projects.length * perProjectHeight + CHART_PADDING
+);
+    chartWrap.style.height = chartHeight + "px";
+
+    chart = new Chart(ctx,{
+      type: "bar",
+      data: { labels: projects, datasets },
+options: {
+  indexAxis: "y",
+  responsive: true,
+  maintainAspectRatio: false,
+
+  datasets: {
+    bar: {
+      barThickness: 23,
+      maxBarThickness: 30
+    }
+  },
+
+plugins: {
+  legend: {
+    position: "bottom",
+    labels: {
+      font: {
+        size: 16,      // ⬅ cambia questo valore
+        weight: "600"
+      },
+      padding: 18     // ⬅ spazio tra le voci (consigliato)
+    }
+  }
+},
+  scales: {
+    x: { beginAtZero: true },
+    y: {
+      grid: { display: false },
+      ticks: {
+        font: {
+          size: 13,
+          weight: "600"
+        }
+      }
+    }
+  }
+}
+    });
+    return;
+  }
+
+  /* ===== MODALITÀ: RIEPILOGO TOTALE ===== */
+  const key = currentView === "task" ? "compito" : "progetto";
+  const map = {};
+  d.forEach(r => {
+    map[r[key]] = (map[r[key]] || 0) + toUnit(r.ore);
+  });
+
+  const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  const labels = sorted.map(e=>e[0]);
+  const values = sorted.map(e=>e[1]);
+
+  // 👉 ALTEZZA DINAMICA
+  const barSize = labels.length > 10
+    ? BAR_HEIGHT_DENSE
+    : BAR_HEIGHT;
+
+  const chartHeight = Math.max(
+    CHART_MIN_HEIGHT,
+    labels.length * barSize + CHART_PADDING
+  );
+
+  chartWrap.style.height = chartHeight + "px";
+
+  const grad = ctx.createLinearGradient(0,0,400,0);
+  grad.addColorStop(0,"#f8cfd0");
+  grad.addColorStop(1,"#7ec8ee");
+
+  chart = new Chart(ctx,{
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: grad,
+        borderRadius: 8,
+        borderSkipped: false,   // 👉 barre arrotondate bene
+        barThickness: 32
+		
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }, // 👉 niente legenda qui
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.raw.toFixed(2)} ${unitLabel}`
+          }
+        }
+      },
+	  /*
+      scales: {
+        x: { beginAtZero: true },
+        y: { grid: { display: false } }
+      }*/
+	  
+		 scales: {
+	  x: { beginAtZero: true },
+	  y: {
+		grid: { display: false },
+		ticks: {
+		  font: {
+			size: 13,
+			weight: "600"
+		  }
+		}
+	  }
+	}
+
+    }
+  });
+  
+}
+
+
+/* ================= PIVOT ================= */
+function renderPivot(d){
+  const agg={};
+  d.forEach(r=>{
+    agg[r.utente]??={};
+    agg[r.utente][currentView==="task"?r.compito:r.progetto]=(agg[r.utente][currentView==="task"?r.compito:r.progetto]||0)+r.ore;
+  });
+
+  const rows=Object.keys(agg);
+  const cols=[...new Set(rows.flatMap(r=>Object.keys(agg[r])))];
+
+let html = '<thead><tr><th>Utente</th>';
+cols.forEach(c => html += `<th title="${c}">${c}</th>`);
+html += '<th>Totale</th></tr></thead><tbody>';
+
+  rows.forEach(r=>{
+    let t=0; html+=`<tr><td>${r}</td>`;
+    cols.forEach(c=>{
+      const v=agg[r][c]||0; t+=v;
+      html+=`<td class="num clickable" onclick="openDetails('${r}','${c}')">${v?formatUnit(v):""}</td>`;
+    });
+    html+=`<td class="num"><b>${formatUnit(t)}</b></td></tr>`;
+  });
+
+  html+='</tbody>';
+  pivotTable.innerHTML=html;
+}
+
+/* ================= DETAILS ================= */
+window.openDetails=(u,val)=>{
+  const key=currentView==="task"?"compito":"progetto";
+  const d=filtered().filter(r=>r.utente===u && r[key]===val);
+  detailsBody.classList.add("open");
+  detailBody.innerHTML=d.map(r=>`
+    <tr>
+      <td>${r.utente}</td>
+      <td>${r.progetto}</td>
+      <td>${r.compito}</td>
+      <td class="num">${formatUnit(r.ore)}</td>
+    </tr>
+  `).join("");
+};
+
+});
+</script>
+
+</body>
+</html>
